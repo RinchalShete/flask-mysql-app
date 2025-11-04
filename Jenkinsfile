@@ -6,19 +6,20 @@ pipeline {
         IMAGE_NAME = "rinchal/flask-mysql-app"
         CONTAINER_NAME = "flask-mysql-container-${env.BUILD_NUMBER}"
         REPO_URL = "https://github.com/RinchalShete/flask-mysql-app.git"
+        SAFE_BUILD_DIR = "/home/jenkins/tmpbuild"
     }
 
     stages {
         stage('Clean Workspace') {
             steps {
-                echo 'Cleaning workspace...'
+                echo '🧹 Cleaning workspace...'
                 deleteDir()
             }
         }
 
         stage('Clone Repository') {
             steps {
-                echo 'Cloning private repository...'
+                echo '🚀 Cloning private repository...'
                 sh '''
                 rm -rf flask-mysql-app || true
                 git clone https://RinchalShete:${GIT_PAT}@github.com/RinchalShete/flask-mysql-app.git
@@ -30,17 +31,28 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image from web folder...'
+                echo '🐳 Building Docker image from /home/jenkins/tmpbuild (snap-safe)...'
                 sh '''
-                cd flask-mysql-app/web
+                # Ensure safe directory exists
+                mkdir -p ${SAFE_BUILD_DIR}
+                rm -rf ${SAFE_BUILD_DIR}/* || true
+
+                # Copy only the web folder into safe directory
+                cp -R flask-mysql-app/web ${SAFE_BUILD_DIR}/
+
+                # Build inside safe directory
+                cd ${SAFE_BUILD_DIR}/web
                 docker build --no-cache -t ${IMAGE_NAME} .
+
+                # Optional cleanup
+                rm -rf ${SAFE_BUILD_DIR}/web
                 '''
             }
         }
 
         stage('Test Docker Container') {
             steps {
-                echo 'Running Docker container for testing...'
+                echo '🏃 Running Docker container for testing...'
                 sh '''
                 docker run -d --name ${CONTAINER_NAME} -p 5000:5000 ${IMAGE_NAME}
                 echo "Container ${CONTAINER_NAME} is running!"
@@ -53,7 +65,7 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                echo 'Pushing image to Docker Hub...'
+                echo '📦 Pushing image to Docker Hub...'
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                     echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
@@ -61,17 +73,17 @@ pipeline {
                     docker push $DOCKER_USER/flask-mysql-app:latest
                     '''
                 }
-                echo 'Image pushed to Docker Hub successfully!'
+                echo '✅ Image pushed to Docker Hub successfully!'
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo '🎉 Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed. Check logs for details.'
+            echo '❌ Pipeline failed. Check logs for details.'
         }
     }
 }
