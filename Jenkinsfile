@@ -17,7 +17,7 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    sh 'docker-compose -f $COMPOSE_FILE build'
+                    sh 'docker compose -f $COMPOSE_FILE build'
                 }
             }
         }
@@ -26,7 +26,7 @@ pipeline {
             steps {
                 script {
                     // Start containers in detached mode
-                    sh 'docker-compose -f $COMPOSE_FILE up -d'
+                    sh 'docker compose -f $COMPOSE_FILE up -d'
                     // Wait a bit for MySQL & Flask to start
                     sh 'sleep 15'
                     // Check running containers
