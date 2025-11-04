@@ -3,55 +3,54 @@ pipeline {
 
     environment {
         IMAGE_NAME = "rinchal/flask-mysql-app"
-        COMPOSE_FILE = "docker-compose.yml"
         REPO_URL = "https://github.com/RinchalShete/flask-mysql-app.git"
     }
 
     stages {
         stage('Clone Repository') {
             steps {
+                echo "Cloning repository from GitHub..."
                 git branch: 'main', url: "${REPO_URL}"
+                echo "Repository cloned successfully."
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Build Flask Image') {
             steps {
                 script {
-                    sh 'docker compose -f $COMPOSE_FILE build'
+                    echo "Building Docker image for Flask app..."
+                    sh 'docker build -t $IMAGE_NAME ./web'
+                    echo "Docker image built: $IMAGE_NAME"
                 }
             }
         }
 
-        stage('Run Containers for Testing') {
+        stage('Test Container') {
             steps {
                 script {
-                    // Start containers in detached mode
-                    sh 'docker compose -f $COMPOSE_FILE up -d'
-                    // Wait a bit for MySQL & Flask to start
-                    sh 'sleep 15'
-                    // Check running containers
-                    sh 'docker ps'
+                    echo "Running test container..."
+                    sh 'docker run -d -p 5000:5000 --name test_flask $IMAGE_NAME'
+                    sh 'sleep 10'
+                    echo "Checking running containers..."
+                    sh 'docker ps | grep test_flask'
+                    echo "Flask container test passed."
+                    sh 'docker stop test_flask && docker rm test_flask'
                 }
             }
         }
 
-        stage('Push Flask Image to Docker Hub') {
+        stage('Push to Docker Hub') {
             steps {
+                echo "Logging into Docker Hub and pushing image..."
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker tag $IMAGE_NAME:latest $DOCKER_USER/flask-app:latest
-                        docker push $DOCKER_USER/flask-app:latest
+                        docker tag $IMAGE_NAME:latest $DOCKER_USER/flask-mysql-app:latest
+                        docker push $DOCKER_USER/flask-mysql-app:latest
                     '''
                 }
+                echo "Image pushed to Docker Hub successfully!"
             }
-        }
-
-    }
-
-    post {
-        always {
-            echo "Pipeline finished — containers cleaned up!"
         }
     }
 }
